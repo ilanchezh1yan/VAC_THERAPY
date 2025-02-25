@@ -1,49 +1,26 @@
-#include "data_frame.h"
+#define TX_BUFFER 0x08
+#define MOTOR_CONTROL_PIN 26
 
-#define CHECK_CANISTER 0x1015
-#define CHANGE_CANISTER 0X1016
-#define LEAKAGE_CHECK 0X1030
-
-#define RX_BFR_SIZE 9
-
-extern uint8_t receivedData[RX_BFR_SIZE];
-TaskHandle_t Response_handler;
 extern TaskHandle_t monitor_pressure_handler;
+extern TaskHandle_t Response_handler;
+extern TaskHandle_t npwt_mode_handler;
 
-void cmd_Response(void *ptr)
-{
-  uint16_t user_cmd;
-  while(1) {
-  user_cmd = receivedData[4] << 8 | receivedData[5];
-  receivedData[4] = 0;
-  receivedData[5] = 0;
-  switch(user_cmd) {
-    case CHECK_CANISTER:
-        validate_canister();
-        break;
-    case CHANGE_CANISTER:
-        change_canister();
-        break;
-    default:
-        break;
-  }
-    vTaskSuspend(Response_handler);
-  }
-}
-
-void Response_task_init(void)
-{
-   xTaskCreate(cmd_Response, "Response_to_user_cmd", 2048, NULL, 1, &Response_handler);
-}
 void setup(void) 
 {
+  Serial.begin(115200);
+  pinMode(MOTOR_CONTROL_PIN, OUTPUT);
+  digitalWrite(MOTOR_CONTROL_PIN, LOW);
   uart_init();
   spi_init();
+  adc_init();
+  sensor_init();
   Response_task_init();
+  mode_task_create();
   vTaskSuspend(Response_handler);
   vTaskSuspend(monitor_pressure_handler);
+  vTaskSuspend(npwt_mode_handler);
 }
 
 void loop(void) {
-
+      return;
 }

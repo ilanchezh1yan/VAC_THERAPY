@@ -1,5 +1,6 @@
 #include <SPI.h>
 #include <MFRC522.h>
+#include "data_frame.h"
 
 #define SS_PIN 5    // Change if needed
 #define RST_PIN 22    // Change if needed
@@ -7,7 +8,6 @@
 #define VALID_UUID 0x1C49A683
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);
-
 
 static byte ReadUIDArray[10];
 static uint32_t ValidCanister_UID = VALID_UUID;   
@@ -50,24 +50,36 @@ void spi_init(void) {
 
 void change_canister(void)
 {
-    uint8_t ACK_data[] = {0x5A, 0xA5, 0x05, 0X82, 0x55, 0X01, 0X00, 0X01};
+    struct Tx_data_frame ACK_data = {
+              .Header = 0x5AA5,
+              .data_length = 0X05,
+              .R_W_cmd = 0X82,
+              .vp = 0x10D0
+    };
+
     if(read_canister()) {
-      send_data(ACK_data, TX_BUFFER);
+      send_data((uint8_t *)&ACK_data, TX_BUFFER);
       return;
     }
+
     ValidCanister_UID = *read_uuid;
-    ACK_data[7] = 0x02;
-    send_data(ACK_data, TX_BUFFER);
+    ACK_data.data = 0x0002;
+    send_data((uint8_t *)&ACK_data, TX_BUFFER);
 }
 
 void validate_canister(void)
 {
-  uint8_t ACK_data[] = {0x5A, 0xA5, 0x05, 0X82, 0x55, 0X00, 0X00, 0X01};
+  struct Tx_data_frame ACK_data = {
+              .Header = 0x5AA5,
+              .data_length = 0X05,
+              .R_W_cmd = 0X82,
+              .vp = 0x10D0,
+    };
   if(read_canister()) {
-      send_data(ACK_data, TX_BUFFER);
+      send_data((uint8_t *)&ACK_data, TX_BUFFER);
       return;
    }
-   ACK_data[7] = check_canister();
-   send_data(ACK_data, TX_BUFFER);
+   ACK_data.data = check_canister();
+   send_data((uint8_t *)&ACK_data, TX_BUFFER);
     
 }
