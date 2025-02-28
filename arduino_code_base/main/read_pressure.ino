@@ -1,16 +1,6 @@
 #include <driver/adc.h>
 #include "data_frame.h"
-
-#define ADC_REFERENCE_VOLTAGE 3280
-#define SENSOR_VS           4700
-
-#define SENSOR_OFFSET 4600
-
-#define FILTERING_COFFICIENT 0.9
-
-#define SAMPLING_TIME 5
-
-#define DAC_1 25
+#include "macros.h"
 
 TaskHandle_t monitor_pressure_handler;
 
@@ -26,7 +16,7 @@ void read_pressure(void * ptr)
     float sensorVoltage;
     int16_t P_mmHg;
     uint16_t samplesPsec = 1000 / SAMPLING_TIME;
-    uint8_t seconds = 59;
+    uint8_t seconds = 59, battery_percentage;
 
     struct Tx_data_frame Pressure_data = {
               .Header = ORGANIZE_COMMAND(0x5AA5),
@@ -41,22 +31,22 @@ void read_pressure(void * ptr)
               .R_W_cmd = 0X82,
     };
 
-
     while(1) {
     adcRawValue = adc1_get_raw(ADC1_CHANNEL_4);
     sensorVoltage = (adcRawValue / 4095.0) * ADC_REFERENCE_VOLTAGE;
     sensorVoltage /= ADC_REFERENCE_VOLTAGE;
-    sensorVoltage *= (SENSOR_VS * FILTERING_COFFICIENT);
+    sensorVoltage *= (SENSOR_VS);
     sum_of_pressure += sensorVoltage * sensorVoltage;
 
     if (!samplesPsec) {
 
       sensorVoltage = (float)sqrt(sum_of_pressure / (1000 / SAMPLING_TIME));
       P_mmHg = ((sensorVoltage + sensor_error_correction) / SENSOR_VS  - 0.92) / 0.0024;
+      P_mmHg *= FILTERING_COFFICIENT;
       Pressure_data.data = ORGANIZE_COMMAND((uint16_t)(-1 * P_mmHg));
       send_data((uint8_t *)&Pressure_data, TX_BUFFER);
 
-      check_leak(Pressure_data.data);
+      check_leak((uint16_t)(-1 * P_mmHg));
 
       if(!seconds) {
         run_minutes++;
@@ -93,19 +83,16 @@ void sensor_init()
    uint16_t count = 1000;
    uint16_t sensor_offset;
 
-   dacWrite(DAC_1, 0xFF);
    while(count--) {
       adcRawValue = adc1_get_raw(ADC1_CHANNEL_4);
       sum_of_vout = (adcRawValue / 4095.0) * ADC_REFERENCE_VOLTAGE;
       sum_of_vout /= ADC_REFERENCE_VOLTAGE;
       sum_of_vout *= SENSOR_VS;
       total_sum_of_vout += FILTERING_COFFICIENT * sum_of_vout;
-
    }
 
    sensor_offset = (uint16_t)(total_sum_of_vout / 1000.0);
-   //sensor_error_correction = sensor_offset > SENSOR_OFFSET ? -113 : 112;  
-
+   sensor_error_correction = sensor_offset > SENSOR_OFFSET ? -113 : 112;  
 }
 
 void adc_init(void)
@@ -113,6 +100,7 @@ void adc_init(void)
   adc1_config_width(ADC_WIDTH_BIT_12); // 12-bit resolution
   adc1_config_channel_atten(ADC1_CHANNEL_4, ADC_ATTEN_DB_11);
   xTaskCreate(read_pressure, "monitor_pressure", 1024, NULL, 1, &monitor_pressure_handler);
+  vTaskSuspend(monitor_pressure_handler);
 }
 
  

@@ -1,25 +1,23 @@
-#define TX_BUFFER 0x08
 #define MOTOR_CONTROL_PIN 26
 
-extern TaskHandle_t monitor_pressure_handler;
-extern TaskHandle_t Response_handler;
-extern TaskHandle_t npwt_mode_handler;
+#define FULLCAPREP 0X10
 
 void setup(void) 
 {
-  Serial.begin(115200);
-  pinMode(MOTOR_CONTROL_PIN, OUTPUT);
-  digitalWrite(MOTOR_CONTROL_PIN, LOW);
   uart_init();
   spi_init();
   adc_init();
-  sensor_init();
   Response_task_init();
   mode_task_create();
-  vTaskSuspend(Response_handler);
-  vTaskSuspend(monitor_pressure_handler);
-  vTaskSuspend(npwt_mode_handler);
+  fuel_gauge_init();
+  if(readFuelGauge(FULLCAPREP) == 3000) {
+    writeFuelGauge(FULLCAPREP, 15000);
+  }
+  dacWrite(MOTOR_CONTROL_PIN, 0);
+  sensor_init();
+  Serial.begin(115200);
 }
+
 
 void loop(void) {
       return;

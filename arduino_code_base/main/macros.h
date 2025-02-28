@@ -1,0 +1,24 @@
+#ifndef MACROS_H
+#define MACROS_H
+
+#define MOTOR_CONTROL_PIN 26
+#define DAC_1 25
+
+#define ADC_REFERENCE_VOLTAGE 3280
+
+#define DAC_RESOLUTION 255 
+
+#define SENSOR_VS           5000
+#define SENSOR_REFERENCE SENSOR_VS 
+#define SENSOR_OFFSET 4600
+
+#define FILTERING_COFFICIENT 0.93
+
+
+#define _3300MV_CONVERSION_FACTOR 0.701
+
+#define SAMPLING_TIME 5
+
+
+
+#endif
