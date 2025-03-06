@@ -1,3 +1,4 @@
+//#include "main.h"
 #include <driver/uart.h>
 #include <HardwareSerial.h>
 
@@ -16,13 +17,6 @@ void IRAM_ATTR uartEventTask(void *pvParameters) {
         if (xQueueReceive(uartQueue, (void *)&event, portMAX_DELAY)) {
             if (event.type == UART_DATA && event.size >= RX_BFR_SIZE) {
                 uart_read_bytes(UART_NUM, (void *)&receivedData, RX_BFR_SIZE, portMAX_DELAY);
-                // Serial.println(receivedData.Header, HEX);
-                // Serial.println(receivedData.data_length, HEX);
-                // Serial.println(receivedData.R_W_cmd, HEX);
-                // Serial.println(receivedData.vp, HEX);
-                // Serial.println(receivedData.words, HEX);
-                // Serial.println(receivedData.msb.data, HEX);
-                // Serial.println(receivedData.data, HEX);
                 uart_flush(UART_NUM);
                 vTaskResume(Response_handler);
             }
@@ -44,12 +38,11 @@ void uart_init(void) {
     uart_param_config(UART_NUM, &uart_config);
     uart_set_pin(UART_NUM, GPIO_NUM_17, GPIO_NUM_16, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     uart_driver_install(UART_NUM, BUF_SIZE, BUF_SIZE, 10, &uartQueue, 0);
-    xTaskCreate(uartEventTask, "uart_event_task", 1024, NULL, 4, NULL);
+    xTaskCreate(uartEventTask, "uart_event_task", 1024, NULL, 5, NULL);
 }
 
 void send_data(uint8_t * data, uint8_t size)
 {
-
   struct response_frame rsp_data; 
 	uint8_t i = 0;
   int ret = 0;

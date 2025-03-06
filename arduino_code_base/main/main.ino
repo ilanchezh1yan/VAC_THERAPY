@@ -1,20 +1,22 @@
-#define MOTOR_CONTROL_PIN 26
+#include "macros.h"
 
-#define FULLCAPREP 0X10
+void GPIO_init(void) {
+  pinMode(PROPORTIONAL_VALVE, OUTPUT);
+}
 
-void setup(void) 
-{
+void setup(void) {
+  GPIO_init();
   uart_init();
   spi_init();
   adc_init();
   Response_task_init();
   mode_task_create();
   fuel_gauge_init();
-  if(readFuelGauge(FULLCAPREP) == 3000) {
-    writeFuelGauge(FULLCAPREP, 15000);
+  if(readFuelGauge(FULLCAPREP_REG) == DEFAULT_FULLCAPREP) {
+    writeFuelGauge(FULLCAPREP_REG, BATTERY_CAPACITY);
   }
-  dacWrite(MOTOR_CONTROL_PIN, 0);
   sensor_init();
+  dacWrite(MOTOR_CONTROL_PIN, PUMP_OFF);
   Serial.begin(115200);
 }
 

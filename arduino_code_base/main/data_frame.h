@@ -1,7 +1,7 @@
 #ifndef DATA_FRAME_H
 #define DATA_FRAME_H
 
-#define TX_BUFFER 0x08
+#define TX_BUFFER (uint8_t)0x08
 #define RX_BFR_SIZE 0x09
 
 #define WRITE_COMMAND 0X82

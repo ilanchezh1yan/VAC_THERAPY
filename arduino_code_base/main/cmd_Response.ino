@@ -10,9 +10,6 @@ uint16_t user_cmd;
 extern struct data_frame receivedData;
 extern TaskHandle_t monitor_pressure_handler;
 extern TaskHandle_t npwt_mode_handler;
-
-extern volatile bool pressure_phase;
-
 void cmd_Response(void *ptr)
 {
   while(1) {
@@ -29,6 +26,7 @@ void cmd_Response(void *ptr)
         break;
 
     case LEAKAGE_SEND:
+
         validate_leak();
         break;
 
@@ -50,7 +48,6 @@ void cmd_Response(void *ptr)
     case NPWT_MODES:
         mode_select_flag = receivedData.data;
         instil_flag = receivedData.msb.data_flag; 
-        if(mode_select_flag) pressure_phase = 0x01;
         break;
 
     case MODE_INTERRUPTION:
@@ -86,6 +83,6 @@ void cmd_Response(void *ptr)
 
 void Response_task_init(void)
 {
-   xTaskCreate(cmd_Response, "Response_to_user_cmd", 2048, NULL, 3, &Response_handler);
+   xTaskCreate(cmd_Response, "Response_to_user_cmd", 2048, NULL, 4, &Response_handler);
    vTaskSuspend(Response_handler);
 }

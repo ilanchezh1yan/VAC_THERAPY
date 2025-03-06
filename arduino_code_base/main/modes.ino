@@ -19,19 +19,20 @@ extern uint8_t Tlow;
 
 TaskHandle_t npwt_mode_handler;
 
-volatile bool pressure_phase;
+volatile bool pressure_phase = 0x01;
 
 static void continuous_mode(void)
 {
     uint8_t dacValue;
     float vout;
 
-    dacWrite(MOTOR_CONTROL_PIN, 255);
+    dacWrite(MOTOR_CONTROL_PIN, PUMP_ON);
     vout = SENSOR_REFERENCE * ((-1 * High_pressure) * 0.002398 + 0.92) + sensor_error_correction;
     vout *= _3300MV_CONVERSION_FACTOR;
-    dacValue = (vout / ADC_REFERENCE_VOLTAGE) * (DAC_RESOLUTION); 
+    dacValue = (vout / ADC_REFERENCE_VOLTAGE) * (DAC_RESOLUTION);
+    pressure_phase = 0x01;
 
-    dacWrite(DAC_1, dacValue);
+    dacWrite(PRESSURE_REFERENCE, dacValue);
     vTaskSuspend(npwt_mode_handler);
 }
 
@@ -40,27 +41,28 @@ void mode_handler(void *ptr)
   uint8_t dacValue;
   uint8_t Time_period;
   float vout; 
-  dacWrite(MOTOR_CONTROL_PIN, 255);
   
   while(1) {
     if(mode_select_flag)
     {
       if(pressure_phase) {
-          dacWrite(MOTOR_CONTROL_PIN, 255);
+          digitalWrite(PROPORTIONAL_VALVE, HIGH);
+          dacWrite(MOTOR_CONTROL_PIN, PUMP_ON);
           vout = SENSOR_REFERENCE * ((-1 * High_pressure) * 0.0024 + 0.92) + sensor_error_correction;
           vout *= _3300MV_CONVERSION_FACTOR;
           Time_period = Tlow;
       }
       else {
-          dacWrite(MOTOR_CONTROL_PIN, 0);
+          digitalWrite(PROPORTIONAL_VALVE, LOW);
+          dacWrite(MOTOR_CONTROL_PIN, PUMP_OFF);
           vout = SENSOR_REFERENCE * ((-1 * low_pressure) * 0.0024 + 0.92) + sensor_error_correction;
           vout *= _3300MV_CONVERSION_FACTOR;
           Time_period = Tlow;
       }
-      pressure_phase = !pressure_phase;
       dacValue = (vout / ADC_REFERENCE_VOLTAGE) * DAC_RESOLUTION;
-      dacWrite(DAC_1, dacValue);
+      dacWrite(PRESSURE_REFERENCE, dacValue);
       vTaskDelay(pdMS_TO_TICKS(Time_period * 1000 * 60));
+      pressure_phase = !pressure_phase;
 
     }
     else {
@@ -71,6 +73,6 @@ void mode_handler(void *ptr)
 
 void mode_task_create(void)
 {
-    xTaskCreate(mode_handler, "npwt_mode_handler_task", 1024, NULL, 2, &npwt_mode_handler);
+    xTaskCreate(mode_handler, "npwt_mode_handler_task", 1024, NULL, 3, &npwt_mode_handler);
     vTaskSuspend(npwt_mode_handler);
 }

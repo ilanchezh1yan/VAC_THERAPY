@@ -32,11 +32,6 @@ void read_set_parameter(void)
           High_pressure = receivedData.msb.data << 8 | receivedData.data;
           break;
 
-#if 0
-      case LOW_PRESSURE:
-          low_pressure = receivedData.msb.data << 8 | receivedData.data;
-          break;
-#endif
       case THIGH:
           Thigh = receivedData.data;
           break;
@@ -92,25 +87,12 @@ void restore_default(uint16_t select_mode, bool mode_init)
       send_data((uint8_t *)&default_data, TX_BUFFER);
       break;
 
-#if 0
-    case CONTINUOUS_MODE_INSTIL:
-      default_data.vp = ORGANIZE_COMMAND(SET_CONST_PRESSURE);
-      //default_data.vp = ORGANIZE_COMMAND();
-      break;
-
-    case INTERMITTEN_MODE_INSTIL:
-      default_data.vp = ORGANIZE_COMMAND(SET_CONST_PRESSURE);
-      default_data.vp = ORGANIZE_COMMAND(SET_ON_TIME);
-      default_data.vp = ORGANIZE_COMMAND(SET_OFF_TIME);
-      //default_data.vp = ORGANIZE_COMMAND(RESTORE_DEFAULT);
-      break;
-#endif
-
     default:
       break;
 
   }
 }
+
 
 
 
