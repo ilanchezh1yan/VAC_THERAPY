@@ -34,6 +34,7 @@
 #define TIMER_MINUTES               0X6005
 
 #define BATTERY_INDICATOR           0x1100
+#define CHARGING                    0X1101
 
 #define BACK_BUTTON                 0x2020
 #define HOME_BUTTON                 0x2200

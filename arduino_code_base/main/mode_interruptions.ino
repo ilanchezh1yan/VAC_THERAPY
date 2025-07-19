@@ -1,7 +1,7 @@
-//#include "main.h"
 #include "data_frame.h"
 #include "macros.h"
 
+extern TaskHandle_t runtimeCalculation_handler;
 extern TaskHandle_t npwt_mode_handler;
 extern volatile bool pressure_phase;
 
@@ -13,6 +13,7 @@ void mode_pause(void) {
     dacWrite(MOTOR_CONTROL_PIN, PUMP_OFF);
     vTaskSuspend(npwt_mode_handler);
     vTaskSuspend(monitor_pressure_handler);
+    vTaskSuspend(runtimeCalculation_handler);
     pressure_phase = 0x00;
 }
 
@@ -25,6 +26,7 @@ void mode_resume(void) {
   else {
     vTaskResume(npwt_mode_handler);
   }
+  vTaskResume(runtimeCalculation_handler);
   vTaskResume(monitor_pressure_handler);
   pressure_phase = 0x01;
 }
@@ -40,6 +42,7 @@ void mode_stop(void) {
     dacWrite(MOTOR_CONTROL_PIN, PUMP_OFF);
     vTaskSuspend(npwt_mode_handler);
     vTaskSuspend(monitor_pressure_handler);
+    vTaskSuspend(runtimeCalculation_handler);
 
     run_minutes = 0;
     run_hrs = 0;

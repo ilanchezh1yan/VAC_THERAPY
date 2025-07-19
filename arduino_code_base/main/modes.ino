@@ -9,7 +9,6 @@ extern struct data_frame receivedData;
 
 extern uint8_t mode_select_flag;
 extern uint8_t instil_flag;
-extern int8_t sensor_error_correction;
 
 extern uint16_t High_pressure;
 extern uint16_t low_pressure;
@@ -19,16 +18,19 @@ extern uint8_t Tlow;
 
 TaskHandle_t npwt_mode_handler;
 
-volatile bool pressure_phase = 0x01;
+uint8_t dacValue;
+
+volatile bool pressure_phase;
 
 static void continuous_mode(void)
 {
-    uint8_t dacValue;
     float vout;
 
     dacWrite(MOTOR_CONTROL_PIN, PUMP_ON);
-    vout = SENSOR_REFERENCE * ((-1 * High_pressure) * 0.002398 + 0.92) + sensor_error_correction;
+    vout = SENSOR_REFERENCE * ((-1 * High_pressure) * 0.002398 + 0.92);
+    
     vout *= _3300MV_CONVERSION_FACTOR;
+    Serial.println(vout);
     dacValue = (vout / ADC_REFERENCE_VOLTAGE) * (DAC_RESOLUTION);
     pressure_phase = 0x01;
 
@@ -38,7 +40,6 @@ static void continuous_mode(void)
 
 void mode_handler(void *ptr) 
 {
-  uint8_t dacValue;
   uint8_t Time_period;
   float vout; 
   
@@ -48,21 +49,21 @@ void mode_handler(void *ptr)
       if(pressure_phase) {
           digitalWrite(PROPORTIONAL_VALVE, HIGH);
           dacWrite(MOTOR_CONTROL_PIN, PUMP_ON);
-          vout = SENSOR_REFERENCE * ((-1 * High_pressure) * 0.0024 + 0.92) + sensor_error_correction;
+          vout = SENSOR_REFERENCE * ((-1 * High_pressure) * 0.0024 + 0.92);
           vout *= _3300MV_CONVERSION_FACTOR;
           Time_period = Tlow;
       }
       else {
           digitalWrite(PROPORTIONAL_VALVE, LOW);
           dacWrite(MOTOR_CONTROL_PIN, PUMP_OFF);
-          vout = SENSOR_REFERENCE * ((-1 * low_pressure) * 0.0024 + 0.92) + sensor_error_correction;
+          vout = SENSOR_REFERENCE * ((-1 * low_pressure) * 0.0024 + 0.92);
           vout *= _3300MV_CONVERSION_FACTOR;
           Time_period = Tlow;
       }
       dacValue = (vout / ADC_REFERENCE_VOLTAGE) * DAC_RESOLUTION;
       dacWrite(PRESSURE_REFERENCE, dacValue);
-      vTaskDelay(pdMS_TO_TICKS(Time_period * 1000 * 60));
       pressure_phase = !pressure_phase;
+      vTaskDelay(pdMS_TO_TICKS(Time_period * 1000 * 60));
 
     }
     else {

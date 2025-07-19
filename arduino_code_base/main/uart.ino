@@ -4,6 +4,7 @@
 
 #include "data_frame.h"
 
+#define ACK 0x4B4F
 #define UART_NUM UART_NUM_2
 #define BUF_SIZE (1024)
 QueueHandle_t uartQueue;
@@ -50,6 +51,5 @@ void send_data(uint8_t * data, uint8_t size)
 		ret = uart_write_bytes(UART_NUM, (uint8_t *)data, size);
 		i += ret;
 	}
-  vTaskDelay(pdMS_TO_TICKS(50));
-  uart_flush(UART_NUM);
+  
 }

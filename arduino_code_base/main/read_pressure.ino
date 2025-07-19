@@ -1,5 +1,5 @@
-#include <driver/adc.h>
 #include "data_frame.h"
+#include "ADS1115.h"
 #include "macros.h"
 
 extern uint16_t High_pressure;
@@ -7,19 +7,14 @@ extern volatile bool pressure_phase;
 
 TaskHandle_t monitor_pressure_handler;
 
-int8_t sensor_error_correction;
-
-uint8_t run_minutes;
-uint8_t run_hrs;
-
 void read_pressure(void * ptr)
 {
-    uint32_t sum_of_pressure = 0;
+    uint32_t sum_of_vout = 0;
     uint16_t adcRawValue;
     float sensorVoltage;
-    int16_t P_mmHg;
+    float P_mmHg;
     uint16_t samplesPsec = SAMPLING_DURATION / SAMPLING_TIME;
-    uint8_t seconds = 59;
+    float previousvolt;
 
     struct Tx_data_frame Pressure_data = {
               .Header = ORGANIZE_COMMAND(0x5AA5),
@@ -28,47 +23,21 @@ void read_pressure(void * ptr)
               .vp = ORGANIZE_COMMAND(SEND_PRESSURE),
     };
 
-    struct Tx_data_frame run_time = {
-              .Header = ORGANIZE_COMMAND(0x5AA5),
-              .data_length = 0X05,
-              .R_W_cmd = 0X82,
-    };
-
     while(1) {
-    adcRawValue = adc1_get_raw(ADC1_CHANNEL_4);
-    sensorVoltage = (adcRawValue / 4095.0) * ADC_REFERENCE_VOLTAGE;
-    sensorVoltage /= ADC_REFERENCE_VOLTAGE;
-    sensorVoltage *= (SENSOR_VS);
-    sum_of_pressure += sensorVoltage * sensorVoltage;
-
+    adcRawValue = read_ADS1115();
+    sensorVoltage = ((float)adcRawValue * 6114.0f * 1.5f) / ADS1115_15_BIT_RESOLUTION; 
+    sum_of_vout += sensorVoltage;
     if (!samplesPsec) {
 
-       if(!seconds) {
-        run_minutes++;
-        if(run_minutes > 59) {
-          run_hrs++;
-          run_minutes = 0;
-          run_time.vp = ORGANIZE_COMMAND(TIMER_HRS);
-          run_time.data = ORGANIZE_COMMAND(run_hrs);
-          send_data((uint8_t *)&run_time, TX_BUFFER);
-        }
-        run_time.vp = ORGANIZE_COMMAND(TIMER_MINUTES);
-        run_time.data = ORGANIZE_COMMAND(run_minutes);
-        send_data((uint8_t *)&run_time, TX_BUFFER);
-        seconds = 54;
-      }
-
-      sensorVoltage = (float)sqrt(sum_of_pressure / (1000 / SAMPLING_TIME));
-      P_mmHg = ((sensorVoltage + sensor_error_correction) / SENSOR_VS  - 0.92) / 0.0024;
-      P_mmHg *= FILTERING_COFFICIENT;
-      Pressure_data.data = ORGANIZE_COMMAND((uint16_t)(-1 * P_mmHg));
+      sensorVoltage = sum_of_vout / (SAMPLING_DURATION / SAMPLING_TIME);
+      P_mmHg = (-1) * ((sensorVoltage ) / SENSOR_VS  - 0.92f) / 0.0024f;
+      Pressure_data.data = ORGANIZE_COMMAND((uint16_t)(P_mmHg));
       send_data((uint8_t *)&Pressure_data, TX_BUFFER);
 
-      check_leak((uint16_t)(-1 * P_mmHg));
+      check_leak((uint16_t)(P_mmHg));
       
-      Serial.println(pressure_phase);
-      if(pressure_phase) {
-        if((uint16_t)(-1 * P_mmHg) > High_pressure) {
+      if(!pressure_phase) {
+        if((uint16_t)(P_mmHg) > High_pressure) {
           dacWrite(MOTOR_CONTROL_PIN, PUMP_CONTROL);
         }
         else {
@@ -77,8 +46,7 @@ void read_pressure(void * ptr)
       }
 
       samplesPsec = SAMPLING_DURATION / SAMPLING_TIME;
-      sum_of_pressure = 0;
-      seconds--;
+      sum_of_vout = 0;
       vTaskDelay(pdMS_TO_TICKS(SAMPLING_TIME));
       continue;
     }
@@ -89,31 +57,41 @@ void read_pressure(void * ptr)
 
 }
 
-void sensor_init()
+
+
+void raed_sensor_init(void)
 {
-   uint16_t adcRawValue;
-   float sum_of_vout = 0, total_sum_of_vout = 0;
-   uint16_t count = 1000;
-   uint16_t sensor_offset;
-
-   while(count--) {
-      adcRawValue = adc1_get_raw(ADC1_CHANNEL_4);
-      sum_of_vout = (adcRawValue / 4095.0) * ADC_REFERENCE_VOLTAGE;
-      sum_of_vout /= ADC_REFERENCE_VOLTAGE;
-      sum_of_vout *= SENSOR_VS;
-      total_sum_of_vout += FILTERING_COFFICIENT * sum_of_vout;
-   }
-
-   sensor_offset = (uint16_t)(total_sum_of_vout / 1000.0);
-   sensor_error_correction = sensor_offset > SENSOR_OFFSET ? -113 : 112;  
+  xTaskCreate(read_pressure, "monitor_pressure", 2048, NULL, 2, &monitor_pressure_handler);
+  vTaskSuspend(monitor_pressure_handler);
 }
 
-void adc_init(void)
-{
-  adc1_config_width(ADC_WIDTH_BIT_12); // 12-bit resolution
-  adc1_config_channel_atten(ADC1_CHANNEL_4, ADC_ATTEN_DB_11);
-  xTaskCreate(read_pressure, "monitor_pressure", 1024, NULL, 2, &monitor_pressure_handler);
-  vTaskSuspend(monitor_pressure_handler);
+uint16_t read_ADS1115(void) {
+  esp_err_t err;
+  uint16_t ADS1115_out = 0;
+	struct ads1115_conf_reg reg_discriptor = {
+			.reg_addrs = CONFIG_REG,
+      .reg_MSB = 0x40,
+      .reg_LSB = 0xAC,
+	};
+  uint8_t data[2];
+
+  size_t  readCount = 0;
+  
+  err = i2cWrite(I2C_NUM, ADS1115_ADDRS, (uint8_t *)&reg_discriptor, 3 , 10);
+  if(err) {
+    return 0;
+  }
+  reg_discriptor.reg_addrs = CONVERSION_REG;
+  err = i2cWrite(I2C_NUM, ADS1115_ADDRS, (uint8_t *)&reg_discriptor.reg_addrs, 1 , 10);
+  if(err) {
+    return 0;
+  }
+  
+  err = i2cRead(I2C_NUM, ADS1115_ADDRS, data, 2, 10, &readCount);
+  if(err) {
+    return 0;
+  }
+  return (uint16_t)(data[0] << 8 | data[1]);
 }
 
  

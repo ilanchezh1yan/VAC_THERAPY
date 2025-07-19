@@ -10,6 +10,7 @@ uint16_t user_cmd;
 extern struct data_frame receivedData;
 extern TaskHandle_t monitor_pressure_handler;
 extern TaskHandle_t npwt_mode_handler;
+
 void cmd_Response(void *ptr)
 {
   while(1) {
@@ -26,7 +27,6 @@ void cmd_Response(void *ptr)
         break;
 
     case LEAKAGE_SEND:
-
         validate_leak();
         break;
 
