@@ -31,11 +31,6 @@ void check_leak(uint16_t detected_pressure)
     if(const_pressure < 3) {
     const_pressure = detected_pressure == previous_pressure ? const_pressure + 1 : const_pressure;
     }
-    Serial.print(detected_pressure);
-    Serial.print(" , ");
-     Serial.print(previous_pressure);
-    Serial.print(" , ");
-    Serial.println(const_pressure);
 
     previous_pressure = detected_pressure;
 
@@ -77,14 +72,15 @@ void validate_leak(void) {
 
     for(int i = 0; i < 20;) {
       sensorVoltage = read_ADS1115() * 1.5;
-      sum_of_vout += sensorVoltage;
+      sensorVoltage = ((float)sensorVoltage * 6114.0f) / ADS1115_15_BIT_RESOLUTION;
+      sum_of_vout += sensorVoltage; 
 
       if (!samplesPsec) {
 
-        sensorVoltage = sum_of_vout / (SAMPLING_DURATION / SAMPLING_TIME);
-        P_mmHg = ((sensorVoltage) / SENSOR_VS  - 0.92) / 0.0024;
+        sensorVoltage = sensorVoltage = sum_of_vout / (SAMPLING_DURATION / SAMPLING_TIME);
+        P_mmHg = (-1) * ((sensorVoltage) / SENSOR_VS  - 0.92) / 0.0024;
 
-        check_leak((uint16_t)(-1 * P_mmHg));
+        check_leak((uint16_t)(P_mmHg));
         i++;
 
         samplesPsec = 1000 / SAMPLING_TIME;
@@ -94,7 +90,7 @@ void validate_leak(void) {
       vTaskDelay(pdMS_TO_TICKS(SAMPLING_TIME));
     }
     dacWrite(MOTOR_CONTROL_PIN, PUMP_OFF);
-    if((uint16_t)(-1 * P_mmHg) >= LEAKAGE_VALIDATION_PRESSURE) {
+    if((uint16_t)(P_mmHg) >= LEAKAGE_VALIDATION_PRESSURE) {
         send_data((uint8_t *)&seal_okay, TX_BUFFER);
     }
     digitalWrite(PROPORTIONAL_VALVE, LOW);
