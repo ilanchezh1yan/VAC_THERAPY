@@ -28,9 +28,8 @@ static void continuous_mode(void)
 
     dacWrite(MOTOR_CONTROL_PIN, PUMP_ON);
     vout = SENSOR_REFERENCE * ((-1 * High_pressure) * 0.002398 + 0.92);
-    
+    vout -= 10; 
     vout *= _3300MV_CONVERSION_FACTOR;
-    Serial.println(vout);
     dacValue = (vout / ADC_REFERENCE_VOLTAGE) * (DAC_RESOLUTION);
     pressure_phase = 0x01;
 
@@ -50,6 +49,7 @@ void mode_handler(void *ptr)
           digitalWrite(PROPORTIONAL_VALVE, HIGH);
           dacWrite(MOTOR_CONTROL_PIN, PUMP_ON);
           vout = SENSOR_REFERENCE * ((-1 * High_pressure) * 0.0024 + 0.92);
+          vout -= REF_VLT_COMPENSATOR; 
           vout *= _3300MV_CONVERSION_FACTOR;
           Time_period = Tlow;
       }
@@ -57,6 +57,7 @@ void mode_handler(void *ptr)
           digitalWrite(PROPORTIONAL_VALVE, LOW);
           dacWrite(MOTOR_CONTROL_PIN, PUMP_OFF);
           vout = SENSOR_REFERENCE * ((-1 * low_pressure) * 0.0024 + 0.92);
+          vout -= REF_VLT_COMPENSATOR;
           vout *= _3300MV_CONVERSION_FACTOR;
           Time_period = Tlow;
       }

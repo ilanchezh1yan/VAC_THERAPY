@@ -5,13 +5,15 @@
 #define _5V_ENABLE 14
 #define MOTOR_CONTROL_PIN 25
 #define PRESSURE_REFERENCE 26
-#define PROPORTIONAL_VALVE 1
+#define PROPORTIONAL_VALVE 12
+//#define PROPORTIONAL_VALVE 1
+
+
 #define I2C_NUM       1       
 #define SDA_PIN       21        
 #define SCL_PIN       22
-#define SWITCH_PIN    13
 
-#define ADC_REFERENCE_VOLTAGE 3300
+#define ADC_REFERENCE_VOLTAGE 3330
 #define ADS1115_15_BIT_RESOLUTION  32767
 
 #define DAC_RESOLUTION 255 
@@ -19,6 +21,12 @@
 #define SENSOR_VS           5000
 #define SENSOR_REFERENCE    SENSOR_VS 
 #define SENSOR_OFFSET       4600
+
+/* reduce 50 mV from the set voltage for referance voltage compensation
+  which is equal to -4 mmHg.
+*/ 
+
+#define REF_VLT_COMPENSATOR 50          
 
 #define FILTERING_COFFICIENT 0.93
 

@@ -1,5 +1,3 @@
-#include <driver/adc.h>
-
 #include "data_frame.h"
 #include "todo_commands.h"
 #include "macros.h"
@@ -9,89 +7,93 @@
 extern uint16_t High_pressure;
 extern uint8_t dacValue;
 
-void check_leak(uint16_t detected_pressure) 
-{
-    struct Tx_data_frame leak_alert = {
-              .Header = ORGANIZE_COMMAND(0x5AA5),
-              .data_length = 0X05,
-              .R_W_cmd = 0X82,
-              .vp = ORGANIZE_COMMAND(LEAKAGE_SEND),
-    };
-    uint8_t leak_percentage;
-    static uint8_t const_pressure;
-    static uint16_t previous_pressure;
+void check_leak(uint16_t detected_pressure) {
+  struct Tx_data_frame leak_alert = {
+    .Header = ORGANIZE_COMMAND(0x5AA5),
+    .data_length = 0X05,
+    .R_W_cmd = 0X82,
+    .vp = ORGANIZE_COMMAND(LEAKAGE_SEND),
+  };
+  uint8_t leak_percentage;
+  uint8_t compensation_leak;
+  static uint8_t const_pressure;
+  static uint16_t previous_pressure;
 
-    if(detected_pressure > High_pressure) {
-        leak_alert.data = ORGANIZE_COMMAND(30);
-        send_data((uint8_t *)&leak_alert, TX_BUFFER);
-        return;
-    }
-    leak_percentage = 100 - (detected_pressure * 100) / High_pressure;
-    
-    if(const_pressure < 3) {
+
+  if (const_pressure < 3) {
     const_pressure = detected_pressure == previous_pressure ? const_pressure + 1 : const_pressure;
+  }
+
+  previous_pressure = detected_pressure;
+  if(High_pressure < 125) compensation_leak = 10;
+  else if(High_pressure >= 125 && High_pressure < 250) compensation_leak = 7;
+  else compensation_leak = 5; 
+
+  if (const_pressure == 3) {
+    if ((detected_pressure < High_pressure)
+        && (uint8_t)(High_pressure - detected_pressure) <= (detected_pressure * compensation_leak) / 100) {
+      dacValue -= 1;
+    } else if ((int8_t)(High_pressure - detected_pressure) < 0) {
+      dacValue += 1;
     }
+    dacWrite(PRESSURE_REFERENCE, dacValue);
+    const_pressure = 0;
+  }
 
-    previous_pressure = detected_pressure;
-
-    if(leak_percentage && const_pressure == 3 && leak_percentage < 5) {
-        dacValue -= 1;
-        dacWrite(PRESSURE_REFERENCE, dacValue);
-        const_pressure = 0;
-    } 
-    leak_percentage = 130 - (detected_pressure * 100) / High_pressure;
-    leak_alert.data = ORGANIZE_COMMAND(leak_percentage);
-    send_data((uint8_t *)&leak_alert, TX_BUFFER);
+  detected_pressure = detected_pressure > High_pressure ? High_pressure : detected_pressure;
+  leak_percentage = 130 - (detected_pressure * 100) / High_pressure;
+  leak_alert.data = ORGANIZE_COMMAND(leak_percentage);
+  send_data((uint8_t *)&leak_alert, TX_BUFFER);
 }
 
 void validate_leak(void) {
-    uint8_t dacValue;
-    uint16_t samplesPsec = SAMPLING_DURATION / SAMPLING_TIME;
-    int16_t P_mmHg;
+  uint8_t dacValue;
+  uint16_t samplesPsec = SAMPLING_DURATION / SAMPLING_TIME;
+  int16_t P_mmHg;
 
-    uint32_t sum_of_vout = 0;
-    float sensorVoltage;
-    float vout;
+  uint32_t sum_of_vout = 0;
+  float sensorVoltage;
+  float vout;
 
-    struct Tx_data_frame seal_okay = {
-              .Header = ORGANIZE_COMMAND(0x5AA5),
-              .data_length = 0X05,
-              .R_W_cmd = 0X82,
-              .vp = ORGANIZE_COMMAND(SEAL_STATUS),
-              .data = ORGANIZE_COMMAND(0x15)
-    };
-    
-    digitalWrite(PROPORTIONAL_VALVE, HIGH);
-    High_pressure = LEAKAGE_VALIDATION_PRESSURE;
-    vout = SENSOR_REFERENCE * ((-1 * LEAKAGE_VALIDATION_PRESSURE) * 0.002398 + 0.92);
-    vout *= _3300MV_CONVERSION_FACTOR;
-    dacValue = (vout / ADC_REFERENCE_VOLTAGE) * (DAC_RESOLUTION); 
-    dacWrite(PRESSURE_REFERENCE, dacValue);
+  struct Tx_data_frame seal_okay = {
+    .Header = ORGANIZE_COMMAND(0x5AA5),
+    .data_length = 0X05,
+    .R_W_cmd = 0X82,
+    .vp = ORGANIZE_COMMAND(SEAL_STATUS),
+    .data = ORGANIZE_COMMAND(0x15)
+  };
 
-    dacWrite(MOTOR_CONTROL_PIN, PUMP_ON);
+  digitalWrite(PROPORTIONAL_VALVE, HIGH);
+  High_pressure = LEAKAGE_VALIDATION_PRESSURE;
+  vout = SENSOR_REFERENCE * ((-1 * LEAKAGE_VALIDATION_PRESSURE) * 0.002398 + 0.92);
+  vout *= _3300MV_CONVERSION_FACTOR;
+  dacValue = (vout / ADC_REFERENCE_VOLTAGE) * (DAC_RESOLUTION);
+  dacWrite(PRESSURE_REFERENCE, dacValue);
 
-    for(int i = 0; i < 20;) {
-      sensorVoltage = read_ADS1115() * 1.5;
-      sensorVoltage = ((float)sensorVoltage * 6114.0f) / ADS1115_15_BIT_RESOLUTION;
-      sum_of_vout += sensorVoltage; 
+  dacWrite(MOTOR_CONTROL_PIN, PUMP_ON);
 
-      if (!samplesPsec) {
+  for (int i = 0; i < 20;) {
+    sensorVoltage = read_ADS1115(0x40) * 1.5;
+    sensorVoltage = ((float)sensorVoltage * 6114.0f) / ADS1115_15_BIT_RESOLUTION;
+    sum_of_vout += sensorVoltage;
 
-        sensorVoltage = sensorVoltage = sum_of_vout / (SAMPLING_DURATION / SAMPLING_TIME);
-        P_mmHg = (-1) * ((sensorVoltage) / SENSOR_VS  - 0.92) / 0.0024;
+    if (!samplesPsec) {
 
-        check_leak((uint16_t)(P_mmHg));
-        i++;
+      sensorVoltage = sensorVoltage = sum_of_vout / (SAMPLING_DURATION / SAMPLING_TIME);
+      P_mmHg = (-1) * ((sensorVoltage) / SENSOR_VS - 0.92) / 0.0024;
 
-        samplesPsec = 1000 / SAMPLING_TIME;
-        sum_of_vout = 0;
-      }
-      samplesPsec--;
-      vTaskDelay(pdMS_TO_TICKS(SAMPLING_TIME));
+      check_leak((uint16_t)(P_mmHg));
+      i++;
+
+      samplesPsec = 1000 / SAMPLING_TIME;
+      sum_of_vout = 0;
     }
-    dacWrite(MOTOR_CONTROL_PIN, PUMP_OFF);
-    if((uint16_t)(P_mmHg) >= LEAKAGE_VALIDATION_PRESSURE) {
-        send_data((uint8_t *)&seal_okay, TX_BUFFER);
-    }
-    digitalWrite(PROPORTIONAL_VALVE, LOW);
+    samplesPsec--;
+    vTaskDelay(pdMS_TO_TICKS(SAMPLING_TIME));
+  }
+  dacWrite(MOTOR_CONTROL_PIN, PUMP_OFF);
+  if ((uint16_t)(P_mmHg) >= LEAKAGE_VALIDATION_PRESSURE) {
+    send_data((uint8_t *)&seal_okay, TX_BUFFER);
+  }
+  digitalWrite(PROPORTIONAL_VALVE, LOW);
 }
