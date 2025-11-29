@@ -3,6 +3,7 @@
 
 extern TaskHandle_t runtimeCalculation_handler;
 extern TaskHandle_t npwt_mode_handler;
+extern TaskHandle_t canister_indicator_handler;
 extern volatile bool pressure_phase;
 
 extern uint8_t run_minutes;
@@ -18,6 +19,10 @@ void mode_pause(void) {
 }
 
 void mode_resume(void) {
+  if(digitalRead(LEVEL_SENSOR)) {
+    vTaskResume(canister_indicator_handler);
+    return;
+  }
 
   digitalWrite(PROPORTIONAL_VALVE, HIGH);
   if(eTaskGetState(npwt_mode_handler) == eBlocked) {

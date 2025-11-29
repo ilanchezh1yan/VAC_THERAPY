@@ -5,18 +5,21 @@ void GPIO_init(void) {
   pinMode(PROPORTIONAL_VALVE, OUTPUT);
   pinMode(_5V_ENABLE, OUTPUT_OPEN_DRAIN);
   digitalWrite(_5V_ENABLE, HIGH);
+  pinMode(BUZZER, OUTPUT);
+  digitalWrite(BUZZER, LOW);
+  pinMode(LEVEL_SENSOR, INPUT);
 }
 
 void setup() {
   //Serial.begin(115200);
   GPIO_init();
+  fuel_gauge_init();
   uart_init();
-  spi_init();
+  canister_init();
   raed_sensor_init();
   Response_task_init();
   mode_task_create();
   dacWrite(MOTOR_CONTROL_PIN, PUMP_OFF);
-  fuel_gauge_init();
   runtime_calculation(); 
 
    if(readFuelGauge(FULLCAPREP_REG) == DEFAULT_FULLCAPREP) {

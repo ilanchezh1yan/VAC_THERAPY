@@ -1,12 +1,16 @@
 #ifndef MACROS_H
 #define MACROS_H
 
+#define SS_PIN 5
+#define RST_PIN 23
 #define _12V_ENABLE 27
 #define _5V_ENABLE 14
 #define MOTOR_CONTROL_PIN 25
 #define PRESSURE_REFERENCE 26
 #define PROPORTIONAL_VALVE 12
 //#define PROPORTIONAL_VALVE 1
+#define BUZZER 1
+#define LEVEL_SENSOR 15
 
 
 #define I2C_NUM       1       
